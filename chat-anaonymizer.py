@@ -17,14 +17,14 @@ faker = Faker()
 # Precompile regex patterns for structured PII
 regex_patterns = {
     "EMAIL": re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"),
-    "PHONE": re.compile(r"\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b"),
+    "PHONE": re.compile(r"\b(?:\+?\d{1,3}[-.\s]?)?(?:\(\d{3}\)|\d{3})[-.\s]?\d{3}[-.\s]?\d{4}(?:x\d+)?\b"),
     "IP": re.compile(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b"),
     "CREDIT_CARD": re.compile(r"\b(?:\d[ -]*?){13,16}\b"),
     "SSN": re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
-    "US_BANK_NUMBER": re.compile(r"\b\d{8,17}\b"),
     "US_PASSPORT": re.compile(r"\b\d{9}\b"),
     "GPS_COORDINATES": re.compile(r"\b-?\d{1,2}\.\d{5,},\s*-?\d{1,3}\.\d{5,}\b"),
-    "MEDICAL_LICENSE": re.compile(r"\b[A-Z]{1,2}\d{5,10}\b")
+    "MEDICAL_LICENSE": re.compile(r"\b[A-Z]{1,2}\d{5,10}\b"),
+    "US_BANK_NUMBER": re.compile(r"\b\d{8,17}\b"),
 }
 
 # Precompiled US Driver License patterns (covers most states)
