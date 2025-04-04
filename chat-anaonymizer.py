@@ -24,7 +24,7 @@ regex_patterns = {
     "US_BANK_NUMBER": re.compile(r"\b\d{8,17}\b"),
     "US_PASSPORT": re.compile(r"\b\d{9}\b"),
     "GPS_COORDINATES": re.compile(r"\b-?\d{1,2}\.\d{5,},\s*-?\d{1,3}\.\d{5,}\b"),
-    "MEDICAL_LICENSE": re.compile(r"\b[A-Z]{2}\d{5,10}\b")
+    "MEDICAL_LICENSE": re.compile(r"\b[A-Z]{1,2}\d{5,10}\b")
 }
 
 # Precompiled US Driver License patterns (covers most states)
