@@ -30,7 +30,7 @@ regex_patterns = {
 # Precompiled US Driver License patterns (covers most states)
 us_driver_license_patterns = [
     re.compile(r"\b[A-Z]{1}\d{7}\b"),       # e.g., NY, NJ
-    re.compile(r"\b\d{1,9}\b"),             # e.g., CA, TX
+    re.compile(r"\b\d{7,9}\b"),             # e.g., CA, TX
     re.compile(r"\b[A-Z]{2}\d{6,8}\b")       # e.g., FL, IL
 ]
 
@@ -127,6 +127,7 @@ def generate_test_data(num_samples=5):
         name = faker.name()
         email = faker.email()
         phone = faker.phone_number()
+        clean_phone = phone.split(' x')[0]  # Removes anything after ' x'
         ip = faker.ipv4()
         credit_card = faker.credit_card_number()
         ssn = faker.ssn()
@@ -136,7 +137,7 @@ def generate_test_data(num_samples=5):
         medical_license = f"{faker.random_uppercase_letter()}{faker.random_int(10000, 999999)}"
 
         raw_text = (
-            f"Hello, I'm {name}. Contact me at {email} or call {phone}. "
+            f"Hello, I'm {name}. Contact me at {email} or call {clean_phone}. "
             f"My IP is {ip}, and my credit card is {credit_card}. "
             f"SSN: {ssn}, Bank: {bank_number}, Passport: {passport}, "
             f"GPS: {latitude}, {longitude}, Medical License: {medical_license}."
