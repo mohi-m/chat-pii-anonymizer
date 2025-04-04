@@ -14,47 +14,88 @@ logging.basicConfig(filename="anonymizer.log", level=logging.INFO,
 nlp = spacy.load("en_core_web_lg")
 faker = Faker()
 
-# Define regex patterns for structured PII
-patterns = {
-    "EMAIL": r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
-    "PHONE": r"\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b",
-    "IP": r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b",
-    "CREDIT_CARD": r"\b(?:\d[ -]*?){13,16}\b",
-    "SSN": r"\b\d{3}-\d{2}-\d{4}\b",
-    "US_BANK_NUMBER": r"\b\d{8,17}\b",
-    "US_PASSPORT": r"\b\d{9}\b",
-    "GPS_COORDINATES": r"\b-?\d{1,2}\.\d{5,},\s*-?\d{1,3}\.\d{5,}\b",
-    "MEDICAL_LICENSE": r"\b[A-Z]{2}\d{5,10}\b"
+# Precompile regex patterns for structured PII
+regex_patterns = {
+    "EMAIL": re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"),
+    "PHONE": re.compile(r"\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b"),
+    "IP": re.compile(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b"),
+    "CREDIT_CARD": re.compile(r"\b(?:\d[ -]*?){13,16}\b"),
+    "SSN": re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
+    "US_BANK_NUMBER": re.compile(r"\b\d{8,17}\b"),
+    "US_PASSPORT": re.compile(r"\b\d{9}\b"),
+    "GPS_COORDINATES": re.compile(r"\b-?\d{1,2}\.\d{5,},\s*-?\d{1,3}\.\d{5,}\b"),
+    "MEDICAL_LICENSE": re.compile(r"\b[A-Z]{2}\d{5,10}\b")
 }
 
-# US Driver License formats (covers most states)
+# Precompiled US Driver License patterns (covers most states)
 us_driver_license_patterns = [
-    r"\b[A-Z]{1}\d{7}\b",       # NY, NJ, etc.
-    r"\b\d{1,9}\b",             # CA, TX, etc.
-    r"\b[A-Z]{2}\d{6,8}\b"      # FL, IL, etc.
+    re.compile(r"\b[A-Z]{1}\d{7}\b"),       # NY, NJ, etc.
+    re.compile(r"\b\d{1,9}\b"),             # CA, TX, etc.
+    re.compile(r"\b[A-Z]{2}\d{6,8}\b")       # FL, IL, etc.
 ]
 
-# Function to anonymize text
 def anonymize_text(text):
+    """
+    Anonymize text by first gathering all regex and NLP-based PII matches, sorting them,
+    and then replacing them in a single pass.
+    """
     original_text = text
-    
-    # Step 1: Anonymize structured PII using regex
-    for label, pattern in patterns.items():
-        text = re.sub(pattern, f"[{label}]", text)
+    matches = []  # Each match: dict with keys: start, end, label
 
-    # Step 2: Anonymize US driver licenses
+    # Step 1: Collect structured PII using regex
+    for label, pattern in regex_patterns.items():
+        for match in pattern.finditer(text):
+            matches.append({
+                'start': match.start(),
+                'end': match.end(),
+                'label': label
+            })
+
+    # US driver licenses
     for pattern in us_driver_license_patterns:
-        text = re.sub(pattern, "[US_DRIVER_LICENSE]", text)
+        for match in pattern.finditer(text):
+            matches.append({
+                'start': match.start(),
+                'end': match.end(),
+                'label': "US_DRIVER_LICENSE"
+            })
 
-    # Step 3: Use NLP model for entity anonymization (Names, Locations, etc.)
+    # Step 2: Use NLP model for entity recognition (Names, Locations, etc.)
     doc = nlp(text)
     for ent in doc.ents:
         if ent.label_ in ["PERSON", "GPE", "LOC"]:
-            text = text.replace(ent.text, f"[{ent.label_}]")
+            matches.append({
+                'start': ent.start_char,
+                'end': ent.end_char,
+                'label': ent.label_
+            })
+
+    # Step 3: Sort matches by starting index; if same start, longer match first.
+    matches.sort(key=lambda m: (m['start'], -m['end']))
+
+    # Step 4: Filter out overlapping spans using a greedy approach.
+    filtered = []
+    current_end = 0
+    for m in matches:
+        if m['start'] >= current_end:
+            filtered.append(m)
+            current_end = m['end']
+
+    # Step 5: Reconstruct the anonymized text in one pass.
+    anonymized_text = ""
+    last_index = 0
+    for m in filtered:
+        # Append text before the match
+        anonymized_text += text[last_index:m['start']]
+        # Append the anonymized token
+        anonymized_text += f"[{m['label']}]"
+        last_index = m['end']
+    # Append any remaining text
+    anonymized_text += text[last_index:]
 
     logging.info(f"Original: {original_text}")
-    logging.info(f"Anonymized: {text}")
-    return text
+    logging.info(f"Anonymized: {anonymized_text}")
+    return anonymized_text
 
 # Function to generate synthetic test cases
 def generate_test_data(num_samples=5):
