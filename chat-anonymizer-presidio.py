@@ -4,34 +4,70 @@ from tkinter import scrolledtext
 from faker import Faker
 from sklearn.metrics import precision_score, recall_score, f1_score
 
-from presidio_analyzer import AnalyzerEngine
+from presidio_analyzer import AnalyzerEngine, Pattern, PatternRecognizer
 from presidio_anonymizer import AnonymizerEngine
 
-# Initialize Presidio components
+# --- Custom Recognizers for Additional PII Types ---
+
+class USBankNumberRecognizer(PatternRecognizer):
+    def __init__(self):
+        patterns = [Pattern("US_BANK_NUMBER", r"\b(?:\d{8}|\d{10,17})\b", 0.5)]
+        super().__init__(supported_entity="US_BANK_NUMBER", patterns=patterns, context=[], name="USBankNumberRecognizer")
+
+# class USDriverLicenseRecognizer(PatternRecognizer):
+#     def __init__(self):
+#         patterns = [
+#             Pattern("US_DRIVER_LICENSE", r"\b[A-Z]{1}\d{7}\b", 0.5),
+#             Pattern("US_DRIVER_LICENSE", r"\b\d{7,9}\b", 0.5),
+#             Pattern("US_DRIVER_LICENSE", r"\b[A-Z]{2}\d{6,8}\b", 0.5)
+#         ]
+#         super().__init__(supported_entity="US_DRIVER_LICENSE", patterns=patterns, context=[], name="USDriverLicenseRecognizer")
+
+class USPassportRecognizer(PatternRecognizer):
+    def __init__(self):
+        patterns = [Pattern("US_PASSPORT", r"\b\d{9}\b", 0.5)]
+        super().__init__(supported_entity="US_PASSPORT", patterns=patterns, context=[], name="USPassportRecognizer")
+
+class MedicalLicenseRecognizer(PatternRecognizer):
+    def __init__(self):
+        patterns = [Pattern("MEDICAL_LICENSE", r"\b[A-Z]{1,2}\d{5,10}\b", 0.5)]
+        super().__init__(supported_entity="MEDICAL_LICENSE", patterns=patterns, context=[], name="MedicalLicenseRecognizer")
+
+
+# --- Initialize Presidio Analyzer and Anonymizer ---
+
 analyzer = AnalyzerEngine()
+# Add our custom recognizers to the analyzer registry
+analyzer.registry.add_recognizer(USBankNumberRecognizer())
+# analyzer.registry.add_recognizer(USDriverLicenseRecognizer())
+analyzer.registry.add_recognizer(USPassportRecognizer())
+analyzer.registry.add_recognizer(MedicalLicenseRecognizer())
+
 anonymizer = AnonymizerEngine()
+
 
 def presidio_anonymize(text):
     """
-    Uses Presidio's AnalyzerEngine and AnonymizerEngine to detect and anonymize PII.
-    Uses the default anonymization configuration.
+    Uses Presidio's AnalyzerEngine and AnonymizerEngine (with default anonymization)
+    to detect and mask PII in the text.
     """
     results = analyzer.analyze(text=text, language="en")
     anonymized_result = anonymizer.anonymize(text=text, analyzer_results=results)
     return anonymized_result.text
 
+
+# --- Evaluation Functions ---
+
 def evaluate_anonymization(raw_text, labeled_text):
     """
     Anonymizes the raw text using Presidio and compares the output with the expected labeled text.
-    Extracts tokens enclosed in square brackets and computes precision, recall, and F1-score.
+    This function extracts tokens enclosed in angle brackets (e.g., <PERSON>) from both strings
+    and computes precision, recall, and F1-score.
     """
     anonymized = presidio_anonymize(raw_text)
     
-    # Extract tokens enclosed in square brackets from expected and anonymized outputs.
-    # (If the default anonymizer does not output tokens in square brackets,
-    #  adjust these extraction patterns accordingly.)
-    expected_entities = re.findall(r"\[(.*?)\]", labeled_text)
-    anonymized_entities = re.findall(r"\[(.*?)\]", anonymized)
+    expected_entities = re.findall(r"<(.*?)>", labeled_text)
+    anonymized_entities = re.findall(r"<(.*?)>", anonymized)
     
     y_true, y_pred = [], []
     for entity in expected_entities:
@@ -48,33 +84,46 @@ def evaluate_anonymization(raw_text, labeled_text):
     
     return {"Precision": precision, "Recall": recall, "F1-score": f1, "anonymized": anonymized}
 
+
 def generate_test_data(num_samples=5):
     """
-    Generate synthetic test cases containing PII using Faker.
-    The expected labeled text uses tokens in square brackets.
-    Note: The default Presidio anonymizer may not output tokens with square brackets.
-    Adjust the expected labels if needed.
+    Generates synthetic test cases containing all the specified PII types using Faker.
+    The expected labeled text uses angle-bracket tokens.
     """
     fake = Faker()
     test_cases = []
     for _ in range(num_samples):
-        name         = fake.name()
-        email        = fake.email()
-        phone        = fake.phone_number()
-        ip           = fake.ipv4()
-        ssn          = fake.ssn()
-        credit_card  = fake.credit_card_number()
+        name            = fake.name()
+        email           = fake.email()
+        phone           = fake.phone_number()
+        # For location, we'll use a city name
+        location        = fake.city()
+        ip              = fake.ipv4()
+        credit_card     = fake.credit_card_number()
+        # Ensure bank account numbers are not exactly 9 digits:
+        us_bank         = fake.random_int(min=10000000, max=99999999) if fake.random_int(0,1)==0 else fake.random_int(min=1000000000, max=99999999999999999)
+        us_driver_license = f"{fake.random_uppercase_letter()}{fake.random_int(1000000, 9999999)}"
+        us_passport     = fake.random_int(min=100000000, max=999999999)  # exactly 9 digits
+        medical_license = f"{fake.random_uppercase_letter()}{fake.random_int(10000, 999999)}"
+        ssn             = fake.ssn()
         
         raw_text = (
             f"Hello, I'm {name}. Contact me at {email} or call {phone}. "
-            f"My IP is {ip}, my SSN is {ssn}, and my credit card is {credit_card}."
+            f"I'm from {location}. My IP is {ip}, my credit card is {credit_card}, "
+            f"my bank account is {us_bank}, my driver's license is {us_driver_license}, "
+            f"my passport is {us_passport}, my medical license is {medical_license}, "
+            f"and my SSN is {ssn}."
         )
         expected_labeled = (
             f"Hello, I'm <PERSON>. Contact me at <EMAIL_ADDRESS> or call <PHONE_NUMBER>. "
-            f"My IP is <IP_ADDRESS>, my SSN is <US_SOCIAL_SECURITY_NUMBER>, and my credit card is <CREDIT_CARD>."
+            f"I'm from <LOCATION>. My IP is <IP_ADDRESS>, my credit card is <CREDIT_CARD>, "
+            f"my bank account is <US_BANK_NUMBER>, my driver's license is <US_DRIVER_LICENSE>, "
+            f"my passport is <US_PASSPORT>, my medical license is <MEDICAL_LICENSE>, "
+            f"and my SSN is <US_SSN>."
         )
         test_cases.append((raw_text, expected_labeled))
     return test_cases
+
 
 def evaluate_test_cases(test_cases):
     """
@@ -98,38 +147,20 @@ def evaluate_test_cases(test_cases):
     f1        = f1_score(y_true, y_pred, zero_division=0)
     return {"Precision": precision, "Recall": recall, "F1-score": f1}
 
+
+# --- GUI Implementation using Tkinter ---
+
 def run_gui():
     root = tk.Tk()
-    root.title("Chat PII Anonymizer & Evaluator (Presidio)")
+    root.title("Chat PII Anonymizer & Evaluator (Presidio with Custom Recognizers)")
 
-    # --- Anonymize Text Section ---
-    frame_anonymize = tk.LabelFrame(root, text="Anonymize Text", padx=10, pady=10)
-    frame_anonymize.pack(padx=10, pady=5, fill="both", expand=True)
-    tk.Label(frame_anonymize, text="Enter chat text:").pack(anchor="w")
-    input_box = scrolledtext.ScrolledText(frame_anonymize, height=5, width=160)
-    input_box.pack(padx=5, pady=5)
-    result_box_anonymize = scrolledtext.ScrolledText(frame_anonymize, height=5, width=160)
-    result_box_anonymize.pack(padx=5, pady=5)
-
-    def anonymize_input():
-        text = input_box.get("1.0", tk.END).strip()
-        if not text:
-            result_box_anonymize.delete("1.0", tk.END)
-            result_box_anonymize.insert(tk.END, "Please enter text to anonymize.")
-            return
-        anonymized = presidio_anonymize(text)
-        result_box_anonymize.delete("1.0", tk.END)
-        result_box_anonymize.insert(tk.END, anonymized)
-    
-    tk.Button(frame_anonymize, text="Anonymize", command=anonymize_input).pack(pady=5)
-
-    # --- Custom Evaluation Section ---
+    # Custom Evaluation Section
     frame_evaluation = tk.LabelFrame(root, text="Evaluate Anonymization (Custom Input)", padx=10, pady=10)
     frame_evaluation.pack(padx=10, pady=5, fill="both", expand=True)
     tk.Label(frame_evaluation, text="Raw text:").pack(anchor="w")
     raw_text_box = scrolledtext.ScrolledText(frame_evaluation, height=5, width=160)
     raw_text_box.pack(padx=5, pady=5)
-    tk.Label(frame_evaluation, text="Labeled text (with expected [LABEL] tokens):").pack(anchor="w")
+    tk.Label(frame_evaluation, text="Labeled text (with expected <LABEL> tokens):").pack(anchor="w")
     labeled_text_box = scrolledtext.ScrolledText(frame_evaluation, height=5, width=160)
     labeled_text_box.pack(padx=5, pady=5)
     result_box_eval = scrolledtext.ScrolledText(frame_evaluation, height=5, width=160)
@@ -151,10 +182,10 @@ def run_gui():
     
     tk.Button(frame_evaluation, text="Calculate Accuracy", command=evaluate_input).pack(pady=5)
 
-    # --- Synthetic Test Cases Section ---
+    # Synthetic Test Cases Section
     frame_test_data = tk.LabelFrame(root, text="Synthetic Test Cases Evaluation", padx=10, pady=10)
     frame_test_data.pack(padx=10, pady=5, fill="both", expand=True)
-    result_box_test = scrolledtext.ScrolledText(frame_test_data, height=5, width=160)
+    result_box_test = scrolledtext.ScrolledText(frame_test_data, height=16, width=160)
     result_box_test.pack(padx=5, pady=5)
 
     def run_test_cases():
