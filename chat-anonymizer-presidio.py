@@ -147,6 +147,63 @@ def evaluate_test_cases(test_cases):
     f1        = f1_score(y_true, y_pred, zero_division=0)
     return {"Precision": precision, "Recall": recall, "F1-score": f1}
 
+def evaluate_test_cases_new(test_cases):
+    """
+    Evaluates a list of synthetic test cases and aggregates precision, recall, and F1-score.
+    """
+    y_true, y_pred = [], []
+    for raw, expected in test_cases:
+        result = evaluate_anonymization(raw, expected)
+        expected_entities = re.findall(r"\[(.*?)\]", expected)
+        anonymized_entities = re.findall(r"<(.*?)>", result["anonymized"])
+        for entity in expected_entities:
+            y_true.append(1)
+            y_pred.append(1 if entity in anonymized_entities else 0)
+        for entity in anonymized_entities:
+            if entity not in expected_entities:
+                y_true.append(0)
+                y_pred.append(1)
+    
+    precision = precision_score(y_true, y_pred, zero_division=0)
+    recall    = recall_score(y_true, y_pred, zero_division=0)
+    f1        = f1_score(y_true, y_pred, zero_division=0)
+    return {"Precision": precision, "Recall": recall, "F1-score": f1}
+
+def evaluate_external_test_cases(file_path):
+    """
+    Reads external test cases from a file and evaluates them.
+    The file should contain raw text and expected labeled text in a specific format.
+    Only processes the first 10 rows of the file, ignoring the header.
+    """
+    test_cases = []
+    with open(file_path, 'r') as f:
+        import csv
+        reader = csv.reader(f)
+        next(reader)  # Skip the header row
+        for i, row in enumerate(reader):
+            if i >= 10:  # Limit to the first 10 rows
+                break
+            raw_text, expected_labeled = row[1], row[0]
+            # Use regex to replace multiple patterns efficiently
+            replacements = {
+                r"FULLNAME_\d+|FIRSTNAME_\d+|LASTNAME_\d+": "PERSON",
+                r"EMAIL_\d+": "EMAIL_ADDRESS",
+                r"PHONE_NUMBER": "PHONE_NUMBER",
+                r"CITY_\d+|STATE_\d+|COUNTY_\d+|STREET_\d+|STREETADDRESS_\d+|SECONDARYADDRESS_\d+|ZIPCODE_\d+": "LOCATION",
+                r"IPV4_\d+|IPV6_\d+|IP_\d+": "IP_ADDRESS",
+                r"CREDITCARDNUMBER_\d+": "CREDIT_CARD",
+                r"US_BANK_NUMBER": "US_BANK_NUMBER",
+                r"US_DRIVER_LICENSE": "US_DRIVER_LICENSE",
+                r"US_PASSPORT": "US_PASSPORT",
+                r"MEDICAL_LICENSE": "MEDICAL_LICENSE",
+                r"US_SSN": "US_SSN"
+            }
+            for pattern, replacement in replacements.items():
+                expected_labeled = re.sub(pattern, replacement, expected_labeled)
+            
+            test_cases.append((raw_text.strip(), expected_labeled.strip()))
+    return test_cases
+
 
 # --- GUI Implementation using Tkinter ---
 
@@ -189,8 +246,11 @@ def run_gui():
     result_box_test.pack(padx=5, pady=5)
 
     def run_test_cases():
-        test_cases = generate_test_data(5)
+        # test_cases = evaluate_external_test_cases("test-data/PII43k.csv")
+        # overall_metrics = evaluate_test_cases_new(test_cases)
+        test_cases = generate_test_data(10)
         overall_metrics = evaluate_test_cases(test_cases)
+
         result_box_test.delete("1.0", tk.END)
         result_box_test.insert(tk.END, "Synthetic Test Cases Evaluation:\n")
         for i, (raw, expected) in enumerate(test_cases, start=1):

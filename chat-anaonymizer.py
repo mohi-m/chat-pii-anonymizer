@@ -239,7 +239,7 @@ def run_gui():
     result_box_test.pack(padx=5, pady=5)
 
     def run_test_cases():
-        test_cases = generate_test_data(5)
+        test_cases = generate_test_data(10)
         metrics = evaluate_test_cases(test_cases)
         result_box_test.delete("1.0", tk.END)
         result_box_test.insert(tk.END, "Synthetic Test Cases Evaluation:\n")
