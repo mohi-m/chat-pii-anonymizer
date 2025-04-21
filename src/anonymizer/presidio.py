@@ -3,43 +3,13 @@ from typing import Dict, List, Any
 from sklearn.metrics import precision_score, recall_score, f1_score
 import re
 
-from presidio_analyzer import AnalyzerEngine, Pattern, PatternRecognizer
+from presidio_analyzer import AnalyzerEngine
 from presidio_anonymizer import AnonymizerEngine
 
 from .base import BaseAnonymizer, AnonymizationResult
-
-
-class USBankNumberRecognizer(PatternRecognizer):
-    def __init__(self):
-        patterns = [Pattern("US_BANK_NUMBER", r"\b(?:\d{8}|\d{10,17})\b", 0.5)]
-        super().__init__(
-            supported_entity="US_BANK_NUMBER",
-            patterns=patterns,
-            context=[],
-            name="USBankNumberRecognizer",
-        )
-
-
-class USPassportRecognizer(PatternRecognizer):
-    def __init__(self):
-        patterns = [Pattern("US_PASSPORT", r"\b\d{9}\b", 0.5)]
-        super().__init__(
-            supported_entity="US_PASSPORT",
-            patterns=patterns,
-            context=[],
-            name="USPassportRecognizer",
-        )
-
-
-class MedicalLicenseRecognizer(PatternRecognizer):
-    def __init__(self):
-        patterns = [Pattern("MEDICAL_LICENSE", r"\b[A-Z]{1,2}\d{5,10}\b", 0.5)]
-        super().__init__(
-            supported_entity="MEDICAL_LICENSE",
-            patterns=patterns,
-            context=[],
-            name="MedicalLicenseRecognizer",
-        )
+from .recognizers.us_bank_number import USBankNumberRecognizer
+from .recognizers.us_passport import USPassportRecognizer
+from .recognizers.medical_license import MedicalLicenseRecognizer
 
 
 class PresidioAnonymizer(BaseAnonymizer):
