@@ -4,84 +4,108 @@ The **Chat PII Anonymizer** is a Python-based tool designed to detect and anonym
 
 ## Features
 
-- **Custom Recognizers**: Extend Presidio's capabilities with custom recognizers for PII types like US bank numbers, medical licenses, and passports.
-- **Regex-Based Detection**: Identify structured PII (e.g., emails, phone numbers, IPs) using precompiled regex patterns.
-- **NLP-Based Detection**: Use spaCy's Named Entity Recognition (NER) to detect entities like PERSON, GPE (geopolitical entities), and LOC (locations).
-- **Evaluation Metrics**: Evaluate anonymization accuracy with precision, recall, and F1-score.
-- **Synthetic Test Data**: Generate synthetic test cases with Faker for testing and evaluation.
-- **GUI Interface**: A user-friendly GUI built with Tkinter for anonymization and evaluation.
+- **Multiple Anonymization Methods**: Choose between Regex+NLP or Presidio-based anonymization
+- **Custom Recognizers**: Extend Presidio's capabilities with custom recognizers for PII types like US bank numbers, medical licenses, and passports
+- **Regex-Based Detection**: Identify structured PII (e.g., emails, phone numbers, IPs) using precompiled regex patterns
+- **NLP-Based Detection**: Use spaCy's Named Entity Recognition (NER) to detect entities like PERSON, GPE (geopolitical entities), and LOC (locations)
+- **Evaluation Metrics**: Evaluate anonymization accuracy with precision, recall, and F1-score
+- **Synthetic Test Data**: Generate synthetic test cases with Faker for testing and evaluation
+- **Modern GUI Interface**: A user-friendly GUI with tabbed interface for anonymization, evaluation, and testing
 
 ## Installation
 
 1. Clone the repository:
-    ```bash
-    git clone https://github.com/mohi-m/chat-pii-anonymizer.git
-    cd chat-pii-anonymizer
-    ```
+
+   ```bash
+   git clone https://github.com/mohi-m/chat-pii-anonymizer.git
+   cd chat-pii-anonymizer
+   ```
 
 2. Install the required dependencies:
-    ```bash
-    pip install -r requirements.txt
-    ```
+
+   ```bash
+   pip install -r requirements.txt
+   ```
 
 3. Download the spaCy language model:
-    ```bash
-    python -m spacy download en_core_web_lg
-    ```
+   ```bash
+   python -m spacy download en_core_web_lg
+   ```
 
 ## Usage
 
 ### Running the GUI
-To launch the GUI for anonymization and evaluation:
+
+To launch the GUI:
+
 ```bash
-python chat-anonymizer-presidio.py
+python main.py
 ```
 
-### Anonymizing Text
-1. Enter the raw chat text in the input box.
-2. Click the **Anonymize** button to mask PII.
-3. View the anonymized text in the output box.
+The GUI provides three main tabs:
 
-### Evaluating Anonymization
-1. Enter the raw text and labeled text (with expected PII labels) in the respective input boxes.
-2. Click the **Calculate Accuracy** button to compute precision, recall, and F1-score.
+1. **Anonymize Text**
 
-### Running Synthetic Test Cases
-1. Click the **Run Test Cases** button to evaluate the tool on synthetic test cases.
-2. View the anonymized results and overall metrics in the output box.
+   - Enter raw text and choose anonymization method (Regex+NLP or Presidio)
+   - Click "Anonymize Text" to mask PII
+   - View results in real-time
+
+2. **Evaluation**
+
+   - Input raw text and labeled text (using <LABEL> or [LABEL] format)
+   - Calculate accuracy metrics
+   - View detailed results including anonymized output
+
+3. **Test Cases**
+   - Generate and run synthetic test cases
+   - View comprehensive test results with metrics
+   - Analyze performance across different PII types
 
 ## Supported PII Types
 
-| PII Type           | Detection Method | Example              |
-|---------------------|------------------|----------------------|
-| Email              | Regex            | example@mail.com     |
-| Phone Number       | Regex            | +1-123-456-7890      |
-| IP Address         | Regex            | 192.168.1.1          |
-| Credit Card Number | Regex            | 4111 1111 1111 1111  |
-| SSN                | Regex            | 123-45-6789          |
-| US Passport        | Regex            | 123456789            |
-| Medical License    | Regex            | A123456              |
-| US Bank Number     | Regex            | 12345678901234567    |
-| Person Name        | NLP (spaCy)      | John Doe             |
-| Location (GPE/LOC) | NLP (spaCy)      | New York             |
+| PII Type           | Detection Method | Example             |
+| ------------------ | ---------------- | ------------------- |
+| Email              | Regex            | example@mail.com    |
+| Phone Number       | Regex            | +1-123-456-7890     |
+| IP Address         | Regex            | 192.168.1.1         |
+| Credit Card Number | Regex            | 4111 1111 1111 1111 |
+| SSN                | Regex            | 123-45-6789         |
+| US Passport        | Regex            | 123456789           |
+| Medical License    | Regex            | A123456             |
+| US Bank Number     | Regex            | 12345678901234567   |
+| Person Name        | NLP (spaCy)      | John Doe            |
+| Location (GPE/LOC) | NLP (spaCy)      | New York            |
 
-## File Structure
+## Project Structure
 
 ```
 chat-pii-anonymizer/
-├── chat-anonymizer-presidio.py   # Main script using Presidio
-├── chat-anonymizer.py            # Alternative script using spaCy and regex
-├── README.md
-├── requirements.txt              # Python dependencies
+├── main.py                 # Entry point
+├── requirements.txt        # Python dependencies
+├── src/
+│   └── anonymizer/
+│       ├── __init__.py
+│       ├── base.py        # Abstract base class
+│       ├── presidio.py    # Presidio implementation
+│       ├── regex.py       # Regex+NLP implementation
+│       ├── gui/
+│       │   ├── __init__.py
+│       │   └── app.py     # GUI implementation
+│       └── utils/
+│           └── __init__.py
+├── test-data/             # Test datasets
+└── tests/                 # Test cases
 ```
 
 ## Evaluation
 
-The tool provides evaluation metrics to measure anonymization accuracy:
+The tool provides comprehensive evaluation metrics:
 
-- **Precision**: Proportion of correctly identified PII among all detected PII.
-- **Recall**: Proportion of correctly identified PII among all actual PII.
-- **F1-Score**: Harmonic mean of precision and recall.
+- **Precision**: Proportion of correctly identified PII among all detected PII
+- **Recall**: Proportion of correctly identified PII among all actual PII
+- **F1-Score**: Harmonic mean of precision and recall
+
+Results are displayed with clear formatting and emoji indicators for better readability.
 
 ## Contributing
 
